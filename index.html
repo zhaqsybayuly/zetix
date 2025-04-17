@@ -30,10 +30,12 @@
     </footer>
     <script>
         function fixHyphens(text) {
+            // "Google-дың" сияқты бас әріптен басталатын сөздерді сақтау
             return text.replace(/(?<![A-Z])(\w+)-\s*(\w+)/g, '$1$2');
         }
 
         function searchInText(text, query) {
+            // Сөйлемдерді нүкте, сұрақ және леп белгілері арқылы бөлу
             const sentences = text.split(/[.!?]/).filter(s => s.trim());
             const results = [];
             sentences.forEach((sentence, index) => {
@@ -51,15 +53,17 @@
         let currentResultIndex = 0;
         let displayedSentences = [];
 
+        // files.json файлынан файлдар тізімін алу
         fetch('files.json')
             .then(response => response.json())
             .then(data => {
+                // Барлық TXT файлдарын оқу
                 const promises = data.files.map(file => 
                     fetch(file)
                         .then(response => response.text())
                         .then(text => ({
                             file: file,
-                            results: searchInText(text, '')
+                            text: text
                         }))
                 );
                 return Promise.all(promises);
@@ -79,10 +83,11 @@
                         return;
                     }
 
+                    // Әр файлдың мәтінінде іздеу
                     filesData.forEach(fileData => {
-                        fileData.results = searchInText(fileData.results[0]?.sentence ? fileData.results[0].sentence : fileData.file, query);
-                        if (fileData.results.length > 0) {
-                            fileData.results.forEach(result => {
+                        const results = searchInText(fileData.text, query);
+                        if (results.length > 0) {
+                            results.forEach(result => {
                                 allResults.push({
                                     file: fileData.file,
                                     sentence: result.sentence
@@ -93,6 +98,10 @@
 
                     updateResults();
                 });
+            })
+            .catch(error => {
+                console.error('Қате:', error);
+                document.getElementById('results').innerHTML = '<p>Файлдарды оқуда қате пайда болды.</p>';
             });
 
         function updateResults() {
@@ -135,7 +144,7 @@
                 moreButton.addEventListener('click', () => {
                     currentResultIndex++;
                     if (currentResultIndex < allResults.length) {
-                        displayedSentences.push(allResults[currentResultIndex].sentence);
+                        displayedSentences = [allResults[currentResultIndex].sentence];
                         updateResults();
                     }
                 });
