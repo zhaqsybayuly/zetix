@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zetix - Информатика оқулықтарынан іздеу</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('https://example.com/kazakh-ornament.png');
+            background-size: cover;
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-blue-600 text-white p-4">
+        <h1 class="text-2xl font-bold text-center">Zetix</h1>
+        <p class="text-center">Қазақ тіліндегі информатика оқулықтарынан терминдерді іздеу</p>
+    </header>
+    <main class="max-w-4xl mx-auto p-4">
+        <div class="mb-4">
+            <input type="text" id="searchInput" placeholder="Термин енгізіңіз (мысалы, коммуникация)" 
+                   class="w-full p-2 border rounded">
+        </div>
+        <div id="results" class="space-y-4"></div>
+    </main>
+    <footer class="bg-gray-800 text-white p-4 text-center">
+        <p>Zetix © 2025. Барлық құқықтар қорғалған.</p>
+    </footer>
+    <script>
+        function fixHyphens(text) {
+            return text.replace(/(?<![A-Z])(\w+)-\s*(\w+)/g, '$1$2');
+        }
+
+        function searchInText(text, query) {
+            const sentences = text.split(/[.!?]/).filter(s => s.trim());
+            const results = [];
+            sentences.forEach((sentence, index) => {
+                if (sentence.toLowerCase().includes(query.toLowerCase())) {
+                    results.push({
+                        sentence: fixHyphens(sentence.trim()),
+                        originalIndex: index
+                    });
+                }
+            });
+            return results;
+        }
+
+        let allResults = [];
+        let currentResultIndex = 0;
+        let displayedSentences = [];
+
+        fetch('files.json')
+            .then(response => response.json())
+            .then(data => {
+                const promises = data.files.map(file => 
+                    fetch(file)
+                        .then(response => response.text())
+                        .then(text => ({
+                            file: file,
+                            results: searchInText(text, '')
+                        }))
+                );
+                return Promise.all(promises);
+            })
+            .then(filesData => {
+                const searchInput = document.getElementById('searchInput');
+                const resultsDiv = document.getElementById('results');
+
+                searchInput.addEventListener('input', () => {
+                    const query = searchInput.value.trim();
+                    allResults = [];
+                    currentResultIndex = 0;
+                    displayedSentences = [];
+
+                    if (!query) {
+                        resultsDiv.innerHTML = '';
+                        return;
+                    }
+
+                    filesData.forEach(fileData => {
+                        fileData.results = searchInText(fileData.results[0]?.sentence ? fileData.results[0].sentence : fileData.file, query);
+                        if (fileData.results.length > 0) {
+                            fileData.results.forEach(result => {
+                                allResults.push({
+                                    file: fileData.file,
+                                    sentence: result.sentence
+                                });
+                            });
+                        }
+                    });
+
+                    updateResults();
+                });
+            });
+
+        function updateResults() {
+            const resultsDiv = document.getElementById('results');
+            if (allResults.length === 0) {
+                resultsDiv.innerHTML = '<p>Нәтиже табылмады.</p>';
+                return;
+            }
+
+            if (currentResultIndex >= allResults.length) {
+                currentResultIndex = 0;
+            }
+
+            displayedSentences = [allResults[currentResultIndex].sentence];
+
+            let html = `
+                <div class="p-4 bg-white rounded shadow">
+                    <p>${displayedSentences[0]}</p>
+                    <p class="text-sm text-gray-600">Кітап: ${allResults[currentResultIndex].file}</p>
+                    <p class="text-sm text-gray-600">Нәтижелер саны: ${allResults.length} (17 кітапта)</p>
+            `;
+
+            if (allResults.length > 1) {
+                html += `
+                    <button id="moreButton" class="mt-2 bg-blue-500 text-white px-2 py-1 rounded">Толықтыру</button>
+                    <div class="mt-2">
+                        <p>Басқа нәтижелер:</p>
+                        ${allResults.map((_, i) => `
+                            <button onclick="showResult(${i})" class="mx-1 px-2 py-1 ${i === currentResultIndex ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded">${i + 1}</button>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+
+            const moreButton = document.getElementById('moreButton');
+            if (moreButton) {
+                moreButton.addEventListener('click', () => {
+                    currentResultIndex++;
+                    if (currentResultIndex < allResults.length) {
+                        displayedSentences.push(allResults[currentResultIndex].sentence);
+                        updateResults();
+                    }
+                });
+            }
+        }
+
+        function showResult(index) {
+            currentResultIndex = index;
+            displayedSentences = [allResults[currentResultIndex].sentence];
+            updateResults();
+        }
+    </script>
+</body>
+</html>
